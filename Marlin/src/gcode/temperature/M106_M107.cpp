@@ -55,14 +55,26 @@
  */
 void GcodeSuite::M106() {
   #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
-    if (MODULE_TOOLHEAD_3DP != ModuleBase::toolhead()) return;
+    if ((MODULE_TOOLHEAD_3DP != ModuleBase::toolhead()) && \
+        (MODULE_TOOLHEAD_DUALEXTRUDER != ModuleBase::toolhead())) return;
+    bool seen_p = parser.seenval('P');
     uint8_t p = parser.byteval('P', 0);
     //uint16_t d = parser.seen('A') ? thermalManager.fan_speed[active_extruder] : 255;
     uint16_t s = parser.ushortval('S', 255);
+    uint8_t max_index = 0;
+    if (MODULE_TOOLHEAD_DUALEXTRUDER == ModuleBase::toolhead())
+      max_index = 1;
     NOMORE(s, 255U);
-    NOMORE(p, 4);
-    if(p < 4)
+    NOMORE(p, max_index);
+    if (seen_p) {
       printer1->SetFan(p, s);
+    } else {
+      if (MODULE_TOOLHEAD_3DP == ModuleBase::toolhead()) {
+        printer1->SetFan(0, s);
+      } else if (MODULE_TOOLHEAD_DUALEXTRUDER == ModuleBase::toolhead()) {
+        printer1->SetFan(active_extruder, s);
+      }
+    }
 
   #else
     const uint8_t p = parser.byteval('P', _ALT_P);
@@ -87,11 +99,13 @@ void GcodeSuite::M106() {
  */
 void GcodeSuite::M107() {
   #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
-  if (MODULE_TOOLHEAD_3DP != ModuleBase::toolhead()) return;
+  if (MODULE_TOOLHEAD_3DP != ModuleBase::toolhead() && MODULE_TOOLHEAD_DUALEXTRUDER != ModuleBase::toolhead()) return;
     uint8_t p = parser.byteval('P', 0);
-    NOMORE(p, 4);
-    if(p < 4)
-      printer1->SetFan(p, 0);
+    uint8_t max_index = 0;
+    if (MODULE_TOOLHEAD_DUALEXTRUDER == ModuleBase::toolhead())
+      max_index = 1;
+    NOMORE(p, max_index);
+    printer1->SetFan(p, 0);
 
   #else
     const uint8_t p = parser.byteval('P', _ALT_P);

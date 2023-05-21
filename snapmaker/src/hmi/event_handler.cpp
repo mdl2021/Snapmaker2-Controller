@@ -38,6 +38,7 @@
 // marlin headers
 #include "src/Marlin.h"
 #include "src/module/motion.h"
+#include "src/module/stepper.h"
 #include "src/module/temperature.h"
 #include "src/module/planner.h"
 #include "src/libs/hex_print_routines.h"
@@ -296,7 +297,8 @@ void check_and_request_gcode_again() {
     LOG_E("wait gcode pack timeout and req:%d\n", gocde_pack_start_line());
     ack_gcode_event(EID_FILE_GCODE_PACK_ACK, gocde_pack_start_line());
     if(!planner.movesplanned()) { // and no movement planned
-      if (ModuleBase::toolhead() != MODULE_TOOLHEAD_3DP && laser->tim_pwm() > 0) {
+      if ((ModuleBase::toolhead() != MODULE_TOOLHEAD_3DP && ModuleBase::toolhead() != MODULE_TOOLHEAD_DUALEXTRUDER)
+            && laser->tim_pwm() > 0) {
         systemservice.is_laser_on = true;
         laser->TurnOff();
       }
@@ -457,7 +459,8 @@ static ErrCode HandleFileGcodePack(uint8_t *event_buff, uint16_t size) {
     }
     gcode_buf->is_finish_packet = false;
   }
-  if (ModuleBase::toolhead() != MODULE_TOOLHEAD_3DP && systemservice.is_laser_on) {
+  if ((ModuleBase::toolhead() != MODULE_TOOLHEAD_3DP && ModuleBase::toolhead() != MODULE_TOOLHEAD_DUALEXTRUDER)
+        && systemservice.is_laser_on) {
     systemservice.is_laser_on = false;
     laser->TurnOn();
   }
@@ -527,26 +530,41 @@ static ErrCode GetSecurityStatus(SSTP_Event_t &event) {
   return laser->GetSecurityStatus(event);
 }
 
+static ErrCode GetHotendType(SSTP_Event_t &event) {
+  return printer1->HmiGetHotendType(event);
+}
+
+static ErrCode GetFilamentState(SSTP_Event_t &event) {
+  return printer1->HmiGetFilamentState(event);
+}
+
+static ErrCode GetHotendTemp(SSTP_Event_t &event) {
+  return printer1->HmiGetHotendTemp(event);
+}
+
 EventCallback_t sysctl_event_cb[SYSCTL_OPC_MAX] = {
   UNDEFINED_CALLBACK,
-  /* [SYSCTL_OPC_GET_STATUES]        =  */{EVENT_ATTR_DEFAULT,      SendStatus},
-  /* [SYSCTL_OPC_GET_EXCEPTION]      =  */{EVENT_ATTR_DEFAULT,      SendException},
-  /* [SYSCTL_OPC_START_WORK]         =  */{EVENT_ATTR_DEFAULT,      ChangeSystemStatus},
-  /* [SYSCTL_OPC_PAUSE]              =  */{EVENT_ATTR_ABORT_MOTION, ChangeSystemStatus},
-  /* [SYSCTL_OPC_RESUME]             =  */{EVENT_ATTR_ABORT_MOTION, ChangeSystemStatus},
-  /* [SYSCTL_OPC_STOP]               =  */{EVENT_ATTR_ABORT_MOTION, ChangeSystemStatus},
-  /* [SYSCTL_OPC_FINISH]             =  */{EVENT_ATTR_HAVE_MOTION,  ChangeSystemStatus},
-  /* [SYSCTL_OPC_GET_LAST_LINE]      =  */{EVENT_ATTR_DEFAULT,      SendLastLine},
+  /* [SYSCTL_OPC_GET_STATUES]         = */{EVENT_ATTR_DEFAULT,      SendStatus},
+  /* [SYSCTL_OPC_GET_EXCEPTION]       = */{EVENT_ATTR_DEFAULT,      SendException},
+  /* [SYSCTL_OPC_START_WORK]          = */{EVENT_ATTR_DEFAULT,      ChangeSystemStatus},
+  /* [SYSCTL_OPC_PAUSE]               = */{EVENT_ATTR_ABORT_MOTION, ChangeSystemStatus},
+  /* [SYSCTL_OPC_RESUME]              = */{EVENT_ATTR_ABORT_MOTION, ChangeSystemStatus},
+  /* [SYSCTL_OPC_STOP]                = */{EVENT_ATTR_ABORT_MOTION, ChangeSystemStatus},
+  /* [SYSCTL_OPC_FINISH]              = */{EVENT_ATTR_HAVE_MOTION,  ChangeSystemStatus},
+  /* [SYSCTL_OPC_GET_LAST_LINE]       = */{EVENT_ATTR_DEFAULT,      SendLastLine},
   UNDEFINED_CALLBACK,
-  /* [SYSCTL_OPC_CLEAR_FAULT]        =  */{EVENT_ATTR_DEFAULT,      ClearException},
-  /* [SYSCTL_OPC_RECOVER_POWER_LOSS] =  */{EVENT_ATTR_HAVE_MOTION,  RecoverFromPowerLoss},
+  /* [SYSCTL_OPC_CLEAR_FAULT]         = */{EVENT_ATTR_DEFAULT,      ClearException},
+  /* [SYSCTL_OPC_RECOVER_POWER_LOSS]  = */{EVENT_ATTR_HAVE_MOTION,  RecoverFromPowerLoss},
   UNDEFINED_CALLBACK,
   UNDEFINED_CALLBACK,
-  /* [SYSCTL_OPC_GET_HOME_STATUS]    =  */{EVENT_ATTR_DEFAULT,      SendHomeAndCoordinateStatus},
-  /* [SYSCTL_OPC_SET_LOG_LEVEL]      =  */{EVENT_ATTR_DEFAULT,      SetLogLevel},
+  /* [SYSCTL_OPC_GET_HOME_STATUS]     = */{EVENT_ATTR_DEFAULT,      SendHomeAndCoordinateStatus},
+  /* [SYSCTL_OPC_SET_LOG_LEVEL]       = */{EVENT_ATTR_DEFAULT,      SetLogLevel},
   UNDEFINED_CALLBACK,
   /* [SYSCTL_OPC_GET_SECURITY_STATUS] = */{EVENT_ATTR_DEFAULT,      GetSecurityStatus},
-  /* [SYSCTL_OPC_SET_GCODE_PACK_MODE]     =  */{EVENT_ATTR_DEFAULT,      SetGcodeToPackMode},
+  /* [SYSCTL_OPC_SET_GCODE_PACK_MODE] = */{EVENT_ATTR_DEFAULT,      SetGcodeToPackMode},
+  /* [SYSCTL_OPC_GET_HOTEND_TYPE]     = */{EVENT_ATTR_DEFAULT,      GetHotendType},
+  /* [SYSCTL_OPC_GET_FILAMENT_STATE]  = */{EVENT_ATTR_DEFAULT,      GetFilamentState},
+  /* [SYSCTL_OPC_GET_HOTEND_TEMP]     = */{EVENT_ATTR_DEFAULT,      GetHotendTemp},
 };
 
 
@@ -638,6 +656,103 @@ static ErrCode LaserGetHWVersion(SSTP_Event_t &event) {
   return laser->LaserGetHWVersion();
 }
 
+static ErrCode HmiRequestToolChange(SSTP_Event_t &event) {
+  return printer1->HmiRequestToolChange(event);
+}
+
+static ErrCode HmiSetFanSpeed(SSTP_Event_t &event) {
+  return printer1->HmiSetFanSpeed(event);
+}
+
+static ErrCode HmiSetHotendOffset(SSTP_Event_t &event) {
+  return printer1->HmiSetHotendOffset(event);
+}
+
+static ErrCode HmiGetHotendOffset(SSTP_Event_t &event) {
+  return printer1->HmiGetHotendOffset(event);
+}
+
+static ErrCode HmiRequestProbeSensorCal(SSTP_Event_t &event) {
+  ErrCode err = E_SUCCESS;
+  uint32_t fault;
+
+  if (event.length != 1) {
+    err = E_PARAM;
+    goto EXIT;
+  }
+
+  fault = systemservice.GetFaultFlag();
+  if (fault & (FAULT_FLAG_3DP2E_EXTRUDER_MISMATCH | FAULT_FLAG_3DP2E_UNKNOWN_NOZZLE)) {
+    err = E_HARDWARE;
+    goto EXIT;
+  }
+
+  switch (event.data[0]) {
+    case 0:
+      err = levelservice.ProbeSensorCalibrationLeftExtruderAutoProbe();
+      break;
+    case 1:
+      err = levelservice.ProbeSensorCalibrationRightExtruderAutoProbe();
+      break;
+    case 2:
+      err = levelservice.ProbeSensorCalibraitonRightExtruderPositionConfirm();
+      break;
+    case 3:
+      err = levelservice.ProbeSensorCalibrationLeftExtruderManualProbe();
+      break;
+    case 4:
+      err = levelservice.ProbeSensorCalibraitonLeftExtruderPositionConfirm();
+      break;
+    case 5:
+      err = levelservice.ProbeSensorCalibraitonAbort();
+      break;
+    default:
+      err = E_PARAM;
+      break;
+  }
+
+EXIT:
+  event.data   = &err;
+  event.length = 1;
+  return hmi.Send(event);
+}
+
+static ErrCode HmiRequestAutoBedPositionDet(SSTP_Event_t &event) {
+  return levelservice.DualExtruderAutoBedDetect(event);
+}
+
+static ErrCode HmiRequestManualBedPositionDet(SSTP_Event_t &event) {
+  return levelservice.DualExtruderManualBedDetect(event);
+}
+
+static ErrCode HmiRequestDoDualExtruderAutoLeveling(SSTP_Event_t &event) {
+  return levelservice.DoDualExtruderAutoLeveling(event);
+}
+
+static ErrCode HmiSetDualExtruderAutoLevelingPoint(SSTP_Event_t &event) {
+  return levelservice.DualExtruderAutoLevelingProbePoint(event);
+}
+
+static ErrCode HmiFinishDualExtruderAutoLeveling(SSTP_Event_t &event) {
+  return levelservice.FinishDualExtruderAutoLeveling(event);
+}
+
+static ErrCode HmiRequestDoDualExtruderManualLeveling(SSTP_Event_t &event) {
+  return levelservice.DoDualExtruderManualLeveling(event);
+}
+
+static ErrCode HmiSetDualExtruderManualLevelingPoint(SSTP_Event_t &event) {
+  return levelservice.DualExtruderManualLevelingProbePoint(event);
+}
+
+static ErrCode HmiFinishDualExtruderManualLeveling(SSTP_Event_t &event) {
+  return levelservice.FinishDualExtruderManualLeveling(event);
+}
+
+static ErrCode HmiRequestGetActiveExtruder(SSTP_Event_t &event) {
+  return printer1->HmiRequestGetActiveExtruder(event);
+}
+
 EventCallback_t settings_event_cb[SETTINGS_OPC_MAX] = {
   UNDEFINED_CALLBACK,
   /* SETTINGS_OPC_SET_MACHINE_SIZE */ UNDEFINED_CALLBACK,
@@ -663,7 +778,21 @@ EventCallback_t settings_event_cb[SETTINGS_OPC_MAX] = {
   /* [SETTINGS_OPC_GET_IS_LEVELED]         =  */{EVENT_ATTR_DEFAULT,      IsLeveled},
   /* [SETTINGS_OPC_SET_LASER_TEMP]         =  */{EVENT_ATTR_DEFAULT,      SetProtectTemp},
   /* [SETTINGS_OPC_GET_LASER_HW_VERSION]   =  */{EVENT_ATTR_DEFAULT,      LaserGetHWVersion},
-
+  /* [SETTINGS_OPC_TOOL_CHANGE]            =  */{EVENT_ATTR_HAVE_MOTION,      HmiRequestToolChange},
+  /* [SETTINGS_OPC_GET_HOTEND_OFFSET]      =  */{EVENT_ATTR_DEFAULT,      HmiGetHotendOffset},
+  /* SETTINGS_OPC_SYNC_LEVEL_POINT */ UNDEFINED_CALLBACK,
+  /* [SETTINGS_OPC_SET_HOTEND_OFFSET]      =  */{EVENT_ATTR_DEFAULT,      HmiSetHotendOffset},
+  /* [SETTINGS_OPC_SET_FAN_SPEED]          =  */{EVENT_ATTR_DEFAULT,      HmiSetFanSpeed},
+  /* [SETTINGS_OPC_PROBE_SENSOR_CAL]       =  */{EVENT_ATTR_HAVE_MOTION,      HmiRequestProbeSensorCal},
+  /* SETTINGS_OPC_AUTO_BED_POSITION_DET    =  */{EVENT_ATTR_HAVE_MOTION,      HmiRequestAutoBedPositionDet},
+  /* SETTINGS_OPC_MANUAL_BED_POSITION_DET  =  */{EVENT_ATTR_HAVE_MOTION,      HmiRequestManualBedPositionDet},
+  /* [SETTINGS_OPC_DO_DUALEXTRUDER_AUTO_LEVELING]         =  */{EVENT_ATTR_HAVE_MOTION,      HmiRequestDoDualExtruderAutoLeveling},
+  /* [SETTINGS_OPC_SET_DUALEXTRUDER_AUTO_LEVELING_POINT]  =  */{EVENT_ATTR_HAVE_MOTION,      HmiSetDualExtruderAutoLevelingPoint},
+  /* [SETTINGS_OPC_FINISH_DUALEXTRUDER_AUTO_LEVELING]     =  */{EVENT_ATTR_HAVE_MOTION,      HmiFinishDualExtruderAutoLeveling},
+  /* [SETTINGS_OPC_DO_DUALEXTRUDER_MANUAL_LEVELING]         =  */{EVENT_ATTR_HAVE_MOTION,    HmiRequestDoDualExtruderManualLeveling},
+  /* [SETTINGS_OPC_SET_DUALEXTRUDER_MANUAL_LEVELING_POINT]  =  */{EVENT_ATTR_HAVE_MOTION,    HmiSetDualExtruderManualLevelingPoint},
+  /* [SETTINGS_OPC_FINISH_DUALEXTRUDER_MANUAL_LEVELING]     =  */{EVENT_ATTR_HAVE_MOTION,    HmiFinishDualExtruderManualLeveling},
+  /* [SETTINGS_OPC_GET_ACTIVE_EXTRUDER]    =  */{EVENT_ATTR_DEFAULT,    HmiRequestGetActiveExtruder},
 };
 
 
@@ -731,7 +860,7 @@ static ErrCode DoEMove(SSTP_Event_t &event) {
     goto out;
   }
 
-  if (thermalManager.tooColdToExtrude(0)) {
+  if (thermalManager.tooColdToExtrude(active_extruder)) {
     LOG_E("temperature is cool, cannot move E!\n");
     goto out;
   }
@@ -776,12 +905,61 @@ out:
   return hmi.Send(event);
 }
 
+static ErrCode DoEInfinityMove(SSTP_Event_t &event) {
+  ErrCode err = E_SUCCESS;
+  float speed;
+
+  if (event.length != 5) {
+    err = E_PARAM;
+    goto EXIT;
+  }
+
+  PDU_TO_LOCAL_WORD(speed, event.data + 1);
+  speed = speed / 1000;
+
+  if (event.data[0] == 0) {
+    current_position[E_AXIS] += 100000;
+    line_to_current_position(speed);
+  } else if (event.data[0] == 1) {
+    current_position[E_AXIS] -= 100000;
+    line_to_current_position(speed);
+  } else {
+    err = E_PARAM;
+  }
+
+EXIT:
+  event.data   = &err;
+  event.length = 1;
+  return hmi.Send(event);
+}
+
+static ErrCode StopEMoves(SSTP_Event_t &event) {
+  ErrCode err = E_SUCCESS;
+  stepper.e_moves_quick_stop_triggered();
+
+  uint32_t time_elaspe = millis();
+
+  while ((stepper.get_abort_e_moves_state() == false) || (time_elaspe + 1000 > millis()));
+
+  // Get E where the steppers were interrupted
+  current_position[E_AXIS] = planner.get_axis_position_mm(E_AXIS);
+
+  // Tell the planner where we actually are
+  sync_plan_position();
+
+  event.data   = &err;
+  event.length = 1;
+  return hmi.Send(event);
+}
+
 EventCallback_t motion_event_cb[MOTION_OPC_MAX] = {
   UNDEFINED_CALLBACK,
   UNDEFINED_CALLBACK,
   /* [MOTION_OPC_DO_ABSOLUTE_MOVE]     =  */{EVENT_ATTR_HAVE_MOTION,  DoXYZMove},
   /* [MOTION_OPC_DO_RELATIVE_MOVE]     =  */{EVENT_ATTR_HAVE_MOTION,  DoXYZMove},
-  /* [MOTION_OPC_DO_E_MOVE]            =  */{EVENT_ATTR_HAVE_MOTION,  DoEMove}
+  /* [MOTION_OPC_DO_E_MOVE]            =  */{EVENT_ATTR_HAVE_MOTION,  DoEMove},
+  /* [MOTION_OPC_DO_E_INFINITY_MOVE]   =  */{EVENT_ATTR_HAVE_MOTION,  DoEInfinityMove},
+  /* [MOTION_OPC_STOP_E_MOVES]         =  */{EVENT_ATTR_HAVE_MOTION,  StopEMoves}
 };
 
 

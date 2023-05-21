@@ -31,6 +31,7 @@
 #include "emergency_stop.h"
 #include "rotary_module.h"
 #include "toolhead_3dp.h"
+#include "toolhead_dualextruder.h"
 #include "toolhead_cnc.h"
 #include "toolhead_laser.h"
 #include "purifier.h"
@@ -42,8 +43,6 @@
 #include "src/module/configuration_store.h"
 #include HAL_PATH(src/HAL, HAL.h)
 
-extern ToolHead3DP printer_single;
-
 ModuleBase *static_modules[] = {
   &linear,
   &printer_single,
@@ -54,6 +53,7 @@ ModuleBase *static_modules[] = {
   &linear_tmc,
   &rotaryModule,
   &purifier,
+  &printer_dualextruder,
   &laser_10w,
   NULL
 };
@@ -303,11 +303,12 @@ void ModuleBase::SetToolhead(ModuleToolHeadType toolhead) {
   bool need_saved = false;
 
   // if plugged non-3DP toolhead, will reset leveling data
-  if (toolhead != MODULE_TOOLHEAD_3DP) {
+  if (toolhead != MODULE_TOOLHEAD_3DP && toolhead != MODULE_TOOLHEAD_DUALEXTRUDER) {
     for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++)
       for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
-        if (z_values[x][y] != DEFAUT_LEVELING_HEIGHT) {
-          z_values[x][y] = DEFAUT_LEVELING_HEIGHT;
+        if (z_values[x][y] != DEFAUT_LEVELING_HEIGHT && z_values[x][y] != DEFAUT_LEVELING_HEIGHT_3DP2E) {
+          z_values[x][y] = DEFAUT_LEVELING_HEIGHT_3DP2E;
+          bed_level_virt_interpolate();
           need_saved = true;
         }
       }
@@ -317,4 +318,20 @@ void ModuleBase::SetToolhead(ModuleToolHeadType toolhead) {
   set_min_planner_speed();
   if (need_saved)
     settings.save();
+}
+
+
+void ModuleBase::StaticProcess() {
+  laser_1_6_w.Process();
+  enclosure.Process();
+  emergency_stop.Process();
+  purifier.Process();
+  printer_single.Process();
+  printer_dualextruder.Process();
+  laser_10w.Process();
+
+  if (++timer_in_static_process_ < 100) return;
+  timer_in_static_process_ = 0;
+
+  ReportMarlinUart();
 }

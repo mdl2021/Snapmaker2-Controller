@@ -65,16 +65,16 @@ enum {
 #define X_STOP_PIN        PE12
 #define Y_STOP_PIN        PE12
 #define Z_STOP_PIN        PE12
-#define Z_MIN_PROBE_PIN   -1 
+#define Z_MIN_PROBE_PIN   -1
 
 //
 // Steppers
 //
-extern uint8_t x_step_pin, x_dir_pin, x_enable_pin;
-extern uint8_t y_step_pin, y_dir_pin, y_enable_pin;
-extern uint8_t z_step_pin, z_dir_pin, z_enable_pin;
-extern uint8_t b_step_pin, b_dir_pin, b_enable_pin;
-extern uint8_t e0_step_pin, e0_dir_pin, e0_enable_pin;
+extern int8_t x_step_pin, x_dir_pin, x_enable_pin;
+extern int8_t y_step_pin, y_dir_pin, y_enable_pin;
+extern int8_t z_step_pin, z_dir_pin, z_enable_pin;
+extern int8_t b_step_pin, b_dir_pin, b_enable_pin;
+extern int8_t e0_step_pin, e0_dir_pin, e0_enable_pin;
 #define X_STEP_PIN         x_step_pin
 #define X_DIR_PIN          x_dir_pin
 #define X_ENABLE_PIN       x_enable_pin
@@ -99,9 +99,9 @@ extern uint8_t e0_step_pin, e0_dir_pin, e0_enable_pin;
  * TODO: Currently using same Enable pin to all steppers.
  */
 
-#define E1_STEP_PIN        PE13
-#define E1_DIR_PIN         PC10
-#define E1_ENABLE_PIN      PD11
+#define E1_STEP_PIN        e0_step_pin
+#define E1_DIR_PIN         e0_dir_pin
+#define E1_ENABLE_PIN      e0_enable_pin
 
 #define E2_STEP_PIN        -1
 #define E2_DIR_PIN         -1
@@ -116,7 +116,8 @@ extern uint8_t e0_step_pin, e0_dir_pin, e0_enable_pin;
 //
 // Heaters / Fans
 //
-#define HEATER_0_PIN       PA15   // EXTRUDER 1
+#define HEATER_0_PIN       PA15   // unused pin, fake
+#define HEATER_1_PIN       PA15   // unused pin, fake
 
 #define HEATER_BED_PIN     PA7   // BED
 
@@ -130,7 +131,7 @@ extern uint8_t e0_step_pin, e0_dir_pin, e0_enable_pin;
 //
 #define TEMP_BED_PIN       PC4   // ANALOG NUMBERING
 #define TEMP_0_PIN         PC5   // ANALOG NUMBERING
-#define TEMP_1_PIN         -1   // ANALOG NUMBERING
+#define TEMP_1_PIN         PE7   // ANALOG NUMBERING
 
 //
 // Filament Switch

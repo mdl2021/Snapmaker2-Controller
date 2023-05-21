@@ -48,6 +48,7 @@ GcodeSuite gcode;
 #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
   #include "../../../snapmaker/src/module/module_base.h"
   #include "../snapmaker/src/module/toolhead_laser.h"
+  #include "../snapmaker/src/service/system.h"
 #endif
 
 #include "../Marlin.h" // for idle() and suspend_auto_report
@@ -133,7 +134,7 @@ void GcodeSuite::get_destination_from_command() {
     power = parser.value_float();
   else if (parser.seen('S'))
     power = parser.value_float() * 100.0f / 255.0f;
-  
+
   // If no power given treat as non-inline
   if (laser->IsOnline() && !isnan(power))
     laser->SetOutputInline(power);
@@ -815,11 +816,27 @@ void GcodeSuite::execute_command(void) {
 
       case 2002: M2002(); break;
 
+      case 3000: M3000(); break;
+
+      case 3001: M3001(); break;
+
+      case 3002: M3002(); break;
+
+      case 3003: M3003(); break;
+
+      case 3004: M3004(); break;
+
+      case 3005: M3005(); break;
+
       default: parser.unknown_command_error(); break;
     }
     break;
 
-    case 'T': T(parser.codenum); break;                           // Tn: Tool Change
+    case 'T':
+      systemservice.tool_changing = true;
+      T(parser.codenum);                      // Tn: Tool Change
+      systemservice.tool_changing = false;
+    break;
 
     default: parser.unknown_command_error();
   }

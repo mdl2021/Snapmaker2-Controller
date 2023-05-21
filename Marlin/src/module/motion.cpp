@@ -119,14 +119,19 @@ float destination[X_TO_E]; // = { 0 }
 
 // The active extruder (tool). Set with T<extruder> command.
 #if EXTRUDERS > 1
-  uint8_t active_extruder; // = 0
+  uint8_t active_extruder = 0; // = 0
+  uint8_t actual_extruder = 0; // = 0
 #endif
 
 // Extruder offsets
 #if HAS_HOTEND_OFFSET
   float hotend_offset[XYZ][HOTENDS]; // Initialized by settings.load()
   void reset_hotend_offsets() {
-    constexpr float tmp[XYZ][HOTENDS] = { HOTEND_OFFSET_X, HOTEND_OFFSET_Y, HOTEND_OFFSET_Z };
+    #if (MOTHERBOARD != BOARD_SNAPMAKER_2_0)
+      constexpr float tmp[XYZ][HOTENDS] = { HOTEND_OFFSET_X, HOTEND_OFFSET_Y, HOTEND_OFFSET_Z };
+    #else
+      constexpr float tmp[XYZ][HOTENDS] = DEFAULT_HOTEND_OFFSETS;
+    #endif
     static_assert(
       tmp[X_AXIS][0] == 0 && tmp[Y_AXIS][0] == 0 && tmp[Z_AXIS][0] == 0,
       "Offsets for the first hotend must be 0.0."
@@ -145,6 +150,9 @@ float destination[X_TO_E]; // = { 0 }
 float feedrate_mm_s = MMM_TO_MMS(1500.0f);
 
 int16_t feedrate_percentage = 100;
+#if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
+  int16_t extruders_feedrate_percentage[EXTRUDERS] = {100, 100};
+#endif
 
 // Homing feedrate is const progmem - compare to constexpr in the header
 const float homing_feedrate_mm_s[XN] PROGMEM = {
@@ -294,12 +302,11 @@ void set_current_from_steppers_for_axis(const AxisEnum axis) {
         , true
       #endif
     );
-    const float (&cartes)[X_TO_E] = pos;
   #endif
   if (axis == ALL_AXES)
-    COPY(current_position, cartes);
+    COPY(current_position, pos);
   else
-    current_position[axis] = cartes[axis];
+    current_position[axis] = pos[axis];
 }
 
 /**
@@ -482,7 +489,7 @@ void clean_up_after_endstop_or_probe_move() {
 
   // Software Endstops are based on the configured limits.
   axis_limits_t soft_endstop[XYZ] = { { X_MIN_BED, X_MAX_BED }, { Y_MIN_BED, Y_MAX_BED }, { Z_MIN_POS, Z_MAX_POS } };
-
+  float z_home_position;
   /**
    * Software endstops can be used to monitor the open end of
    * an axis that has a hardware endstop on the other end. Or
@@ -621,7 +628,10 @@ void clean_up_after_endstop_or_probe_move() {
         NOLESS(target[Z_AXIS], soft_endstop[Z_AXIS].min);
       #endif
       #if !HAS_SOFTWARE_ENDSTOPS || ENABLED(MAX_SOFTWARE_ENDSTOP_Z)
-        NOMORE(target[Z_AXIS], soft_endstop[Z_AXIS].max);
+        if (planner.leveling_active)
+          NOMORE(target[Z_AXIS], z_home_position);
+        else
+          NOMORE(target[Z_AXIS], soft_endstop[Z_AXIS].max);
       #endif
   }
 
@@ -1470,7 +1480,7 @@ void homeaxis(const AxisEnum axis) {
     #else
       maxlen = 1.5f * max_length(axis);
     #endif
-    
+
     do_homing_move(axis, 1.5f * maxlen * axis_home_dir);
   }
 
@@ -1514,7 +1524,7 @@ void homeaxis(const AxisEnum axis) {
   }
 
   if (axis != B_AXIS)
-    do_homing_move(axis, axis_home_dir * -3, get_homing_bump_feedrate(axis));
+    do_homing_move(axis, axis_home_dir * -3, homing_feedrate(axis));
 
   #if HAS_EXTRA_ENDSTOPS
     const bool pos_dir = axis_home_dir > 0;
@@ -1709,6 +1719,7 @@ void homeaxis(const AxisEnum axis) {
     soft_endstop[X_AXIS].max = X_MAX_POS;
     soft_endstop[Y_AXIS].max = Y_MAX_POS;
     soft_endstop[Z_AXIS].max = Z_MAX_POS;
+    z_home_position = Z_MAX_POS;
     #endif
     max_length_P[X_AXIS] = X_MAX_POS - X_MIN_POS;
     max_length_P[Y_AXIS] = Y_MAX_POS - Y_MIN_POS;

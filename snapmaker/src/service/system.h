@@ -53,6 +53,8 @@
 #define FAULT_FLAG_UNKNOW_MODEL       (1<<20)
 #define FAULT_FLAG_DOOR_OPENED        (1<<21)
 #define FAULT_FLAG_POWER_DETECT_ERR   (1<<22)
+#define FAULT_FLAG_3DP2E_EXTRUDER_MISMATCH  (1<<23) // active extruder is not target extruder!
+#define FAULT_FLAG_3DP2E_UNKNOWN_NOZZLE     (1<<24) // detect a unknown nozzle or miss nozzle
 #define FAULT_FLAG_UNKNOW             (1<<31)
 
 // this macro mask the bits which are allow to be cleared by screen
@@ -101,6 +103,8 @@ enum ExceptionType : uint8_t {
   ETYPE_SENSOR_COME_OFF,
   ETYPE_LINEAR_MODULE_DIFF_DRIVER,
   ETYPE_LINEAR_MODULE_LEAD_ERROR,
+  ETYPE_3DP2E_EXTRUDER_MISMATCH,
+  ETYPE_3DP2E_UNKNOWN_NOZZLE,
 
   ETYPE_INVALID
 };
@@ -176,6 +180,11 @@ enum RuntimeEnvType : uint8_t {
   RENV_TYPE_LASER_POWER,
   RENV_TYPE_ZOFFSET,
   RENV_TYPE_CNC_POWER,
+  RENV_TYPE_EXTRUDER1_FEEDRATE,
+  RENV_TYPE_EXTRUDER1_HOTEND_TEMP,
+  RENV_TYPE_EXTRUDER1_ZOFFSET,
+  RENV_TYPE_EXTRUDER0_FLOW_RATE,
+  RENV_TYPE_EXTRUDER1_FLOW_RATE,
 
   RENV_TYPE_INVALID
 };
@@ -204,6 +213,10 @@ typedef struct {
 
   uint8_t executor_type;
   uint32_t cur_gcode_line;
+
+  int16_t extruder1_hotend_current_temp;
+  int16_t extruder1_hotend_target_temp;
+  uint16_t  extruder1_feedrate;    // mm/min
 } __packed SystemStatus_t;
 
 
@@ -217,9 +230,9 @@ public:
   void SetSystemFaultBit(uint32_t BitsToSet);
 
   void CheckException();
-  ErrCode ThrowException(ExceptionHost h, ExceptionType t);
-  ErrCode ThrowExceptionISR(ExceptionHost h, ExceptionType t);
-  ErrCode ClearException(ExceptionHost h, ExceptionType t);
+  ErrCode ThrowException(const ExceptionHost h, const ExceptionType t);
+  ErrCode ThrowExceptionISR(const ExceptionHost h, const ExceptionType t);
+  ErrCode ClearException(const ExceptionHost h, const ExceptionType t);
   ErrCode ClearExceptionByFaultFlag(uint32_t flag);
 
   ErrCode PauseTrigger(TriggerSource type);
@@ -280,6 +293,8 @@ public:
   ErrCode CallbackPreQS(QuickStopSource source);
   ErrCode CallbackPostQS(QuickStopSource source);
 
+  bool GetBackupCurrentPosition(float *position, uint8_t size);
+
   uint32_t current_line() { return current_line_; }
   void     current_line(uint32_t line) { current_line_ = line; }
   ErrCode CheckIfSendWaitEvent();
@@ -301,6 +316,8 @@ public:
 
   bool is_waiting_gcode = false;
   bool is_laser_on = false;
+  bool tool_changing = false;
+  bool need_pre_extrusion = true;
 
 private:
   uint8_t TriggleStat;

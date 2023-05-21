@@ -262,9 +262,9 @@ void GcodeSuite::G28(const bool always_home_all) {
   // Always home with tool 0 active
   #if HOTENDS > 1
     #if DISABLED(DELTA) || ENABLED(DELTA_HOME_TO_SAFE_ZONE)
-      const uint8_t old_tool_index = active_extruder;
+      // const uint8_t old_tool_index = active_extruder;
     #endif
-    tool_change(0, 0, true);
+    // tool_change(0, 0, true);
   #endif
 
   #if HAS_DUPLICATION_MODE
@@ -282,13 +282,27 @@ void GcodeSuite::G28(const bool always_home_all) {
 
   #else // NOT DELTA
 
-    const bool homeX = always_home_all || parser.seen('X'),
-               homeY = always_home_all || parser.seen('Y'),
-               homeZ = always_home_all || parser.seen('Z'),
-               homeB = always_home_all || parser.seen('B'),
-               home_all = (!homeX && !homeY && !homeZ && !homeB) || (homeX && homeY && homeZ&& homeB);
+    #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
+      const bool homeX = always_home_all || parser.seen('X'),
+                 homeY = always_home_all || parser.seen('Y'),
+                 homeZ = always_home_all || parser.seen('Z'),
+                 homeB = always_home_all || parser.seen('B');
+      bool home_all = (!homeX && !homeY && !homeZ && !homeB) || (homeX && homeY && homeZ&& homeB);
+    #else
+      const bool homeX = always_home_all || parser.seen('X'),
+                 homeY = always_home_all || parser.seen('Y'),
+                 homeZ = always_home_all || parser.seen('Z'),
+                 homeB = always_home_all || parser.seen('B'),
+                 home_all = (!homeX && !homeY && !homeZ && !homeB) || (homeX && homeY && homeZ&& homeB);
+    #endif
 
     set_destination_from_current();
+
+    #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
+      if (MODULE_TOOLHEAD_DUALEXTRUDER == ModuleBase::toolhead()) {
+        home_all = true;
+      }
+    #endif
 
     #if DISABLED(SW_MACHINE_SIZE)
       #if Z_HOME_DIR > 0  // If homing away from BED do Z first
@@ -298,6 +312,17 @@ void GcodeSuite::G28(const bool always_home_all) {
       if (Z_HOME_DIR > 0)
         if (home_all || homeZ) homeaxis(Z_AXIS);
     #endif // DISABLED(SW_MACHINE_SIZE)
+
+    #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
+      if (MODULE_TOOLHEAD_DUALEXTRUDER == ModuleBase::toolhead()) {
+        printer1->ModuleCtrlRightExtruderMove(GO_HOME);
+        active_extruder = 0;
+        // update software endstop
+        update_software_endstops(X_AXIS);
+        update_software_endstops(Y_AXIS);
+        update_software_endstops(Z_AXIS);
+      }
+    #endif
 
     const float z_homing_height = (
       #if ENABLED(UNKNOWN_Z_NO_RAISE)
@@ -413,7 +438,7 @@ void GcodeSuite::G28(const bool always_home_all) {
       set_axis_is_at_home(B_AXIS);
     }
     sync_plan_position();
-  
+
   #endif // !DELTA (G28)
 
   /**
@@ -463,9 +488,17 @@ void GcodeSuite::G28(const bool always_home_all) {
   #endif
 
   #if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
-    if((ModuleBase::toolhead() == MODULE_TOOLHEAD_3DP) && (all_axes_homed())) {
+    if(((ModuleBase::toolhead() == MODULE_TOOLHEAD_3DP) || (ModuleBase::toolhead() == MODULE_TOOLHEAD_DUALEXTRUDER)) \
+        && (all_axes_homed())) {
       set_bed_leveling_enabled(true);
+      z_home_position = current_position[Z_AXIS] + 1;
       levelservice.ApplyLiveZOffset();
+
+      if (!parser.boolval('N')) {
+        if (actual_extruder != active_extruder) {
+          printer1->ToolChange(actual_extruder);
+        }
+      }
     }
   #endif
 
@@ -478,7 +511,7 @@ void GcodeSuite::G28(const bool always_home_all) {
     #else
       #define NO_FETCH true
     #endif
-    tool_change(old_tool_index, 0, NO_FETCH);
+    // tool_change(old_tool_index, 0, NO_FETCH);
   #endif
 
 

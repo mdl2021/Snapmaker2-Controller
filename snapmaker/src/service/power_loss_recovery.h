@@ -33,8 +33,8 @@ typedef enum {
 } GCodeSources;
 
 #define PP_FILE_NAME_LEN  270
-#define PP_FAN_COUNT      2
-#define PP_HEATER         1
+#define PP_FAN_COUNT      3
+#define PP_HEATER         2
 
 // delay for debounce, uint: ms, for now we use 10ms
 #define POWERPANIC_DEBOUNCE	10
@@ -82,7 +82,11 @@ typedef struct __attribute__((aligned (4))) {
 	bool axes_relative_mode;
 
 	int16_t feedrate_percentage;
-	float   live_z_offset;
+	int16_t extruders_feedrate_percentage[EXTRUDERS];
+	float   live_z_offset[EXTRUDERS];
+	int16_t flow_percentage[EXTRUDERS];
+
+	bool too_changing;
 } PowerLossRecoveryData_t;
 
 

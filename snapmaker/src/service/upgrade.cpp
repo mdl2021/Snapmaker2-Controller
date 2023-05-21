@@ -156,7 +156,9 @@ ErrCode UpgradeService::ReceiveFW(SSTP_Event_t &event) {
     req_pkt_counter_++;
   }
   else {
+    // here will exit directly, and will requst again by heartbeat checking
     LOG_E("param error in receiving FW! pkt index: %u, req index: %u\n", packet_index, req_pkt_counter_);
+    return E_TIMEOUT;
   }
 
   return RequestNextPacket();
@@ -190,10 +192,12 @@ ErrCode UpgradeService::EndUpgarde(SSTP_Event_t &event) {
 
     FLASH_Lock();
 
-    WatchDogInit();
     taskEXIT_CRITICAL();
 
-    return hmi.Send(event);
+    hmi.Send(event);
+    nvic_sys_reset();
+
+    return E_SUCCESS;
   }
   else {
     hmi.Send(event);
@@ -347,6 +351,7 @@ void UpgradeService::Check(void) {
   }
 
   if (!(timeout_ & 0x0003)) {
+    LOG_I("timeout to get fw pkt: %u!\n", req_pkt_counter_);
     RequestNextPacket();
   }
 }

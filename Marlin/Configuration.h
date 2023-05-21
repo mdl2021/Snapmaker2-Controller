@@ -147,7 +147,7 @@
 
 // This defines the number of extruders
 // :[1, 2, 3, 4, 5, 6]
-#define EXTRUDERS 1
+#define EXTRUDERS 2
 
 // Generally expected filament diameter (1.75, 2.85, 3.0, ...). Used for Volumetric, Filament Width Sensor, etc.
 #define DEFAULT_NOMINAL_FILAMENT_DIA 3.0
@@ -185,7 +185,7 @@
 //#define PRUSA_MMU2
 
 // A dual extruder that uses a single stepper motor
-//#define SWITCHING_EXTRUDER
+// #define SWITCHING_EXTRUDER
 #if ENABLED(SWITCHING_EXTRUDER)
   #define SWITCHING_EXTRUDER_SERVO_NR 0
   #define SWITCHING_EXTRUDER_SERVO_ANGLES { 0, 90 } // Angles for E0, E1[, E2, E3]
@@ -370,7 +370,7 @@
  * :{ '0': "Not used", '1':"100k / 4.7k - EPCOS", '2':"200k / 4.7k - ATC Semitec 204GT-2", '3':"Mendel-parts / 4.7k", '4':"10k !! do not use for a hotend. Bad resolution at high temp. !!", '5':"100K / 4.7k - ATC Semitec 104GT-2 (Used in ParCan & J-Head)", '501':"100K Zonestar (Tronxy X3A)", '6':"100k / 4.7k EPCOS - Not as accurate as Table 1", '7':"100k / 4.7k Honeywell 135-104LAG-J01", '8':"100k / 4.7k 0603 SMD Vishay NTCS0603E3104FXT", '9':"100k / 4.7k GE Sensing AL03006-58.2K-97-G1", '10':"100k / 4.7k RS 198-961", '11':"100k / 4.7k beta 3950 1%", '12':"100k / 4.7k 0603 SMD Vishay NTCS0603E3104FXT (calibrated for Makibox hot bed)", '13':"100k Hisens 3950  1% up to 300°C for hotend 'Simple ONE ' & hotend 'All In ONE'", '20':"PT100 (Ultimainboard V2.x)", '51':"100k / 1k - EPCOS", '52':"200k / 1k - ATC Semitec 204GT-2", '55':"100k / 1k - ATC Semitec 104GT-2 (Used in ParCan & J-Head)", '60':"100k Maker's Tool Works Kapton Bed Thermistor beta=3950", '61':"100k Formbot / Vivedino 3950 350C thermistor 4.7k pullup", '66':"Dyze Design 4.7M High Temperature thermistor", '67':"Slice Engineering 450C High Temperature thermistor", '70':"the 100K thermistor found in the bq Hephestos 2", '71':"100k / 4.7k Honeywell 135-104LAF-J01", '147':"Pt100 / 4.7k", '1047':"Pt1000 / 4.7k", '110':"Pt100 / 1k (non-standard)", '1010':"Pt1000 / 1k (non standard)", '-4':"Thermocouple + AD8495", '-3':"Thermocouple + MAX31855 (only for sensor 0)", '-2':"Thermocouple + MAX6675 (only for sensor 0)", '-1':"Thermocouple + AD595",'998':"Dummy 1", '999':"Dummy 2" }
  */
 #define TEMP_SENSOR_0 1
-#define TEMP_SENSOR_1 0
+#define TEMP_SENSOR_1 1
 #define TEMP_SENSOR_2 0
 #define TEMP_SENSOR_3 0
 #define TEMP_SENSOR_4 0
@@ -397,6 +397,8 @@
 #define TEMP_BED_HYSTERESIS      3  // (°C) Temperature proximity considered "close enough" to the target
 
 #define TEMP_CHAMBER_HYSTERESIS  3  // (°C) Temperature proximity considered "close enough" to the target
+
+#define HOTEND_OVERSHOOT  (15)
 
 // Below this temperature the heater will be switched off
 // because it probably indicates a broken thermistor wire.
@@ -525,7 +527,7 @@
  * Prevent a single extrusion longer than EXTRUDE_MAXLENGTH.
  * Note: For Bowden Extruders make this large enough to allow load/unload.
  */
-#define PREVENT_LENGTHY_EXTRUDE
+// #define PREVENT_LENGTHY_EXTRUDE
 #define EXTRUDE_MAXLENGTH 200
 
 //===========================================================================
@@ -688,6 +690,8 @@
  *                                      X, Y, Z, B, E0 [, E1[, E2[, E3[, E4[, E5]]]]]
  */
 #define DEFAULT_AXIS_STEPS_PER_UNIT   { 400, 400, 400, 888.89, 212.21}
+#define SINGLE_EXTRUDER_E_STEPS_PER_MM  212.21
+#define DUAL_EXTRUDER_E_STEPS_PER_MM    667.222
 #define DEFAULT_TMC_AXIS_STEPS_PER_UNIT   { MODULE_LINEAR_PITCH_20, MODULE_LINEAR_PITCH_20, MODULE_LINEAR_PITCH_8, 888.89, 212.21 }
 
 #define MODULE_LINEAR_PITCH_20        160
@@ -867,9 +871,12 @@
  *      O-- FRONT --+
  *    (0,0)
  */
-#define X_PROBE_OFFSET_FROM_EXTRUDER 13  // X offset: -left  +right  [of the nozzle]
+#define X_PROBE_OFFSET_FROM_EXTRUDER 13     // X offset: -left  +right  [of the nozzle]
 #define Y_PROBE_OFFSET_FROM_EXTRUDER 19.15  // Y offset: -front +behind [the nozzle]
-#define Z_PROBE_OFFSET_FROM_EXTRUDER 1   // Z offset: -below +above  [the nozzle]
+#define Z_PROBE_OFFSET_FROM_EXTRUDER 0      // Z offset: -below +above  [the nozzle]
+#define DUALEXTRUDER_X_PROBE_OFFSET_FROM_EXTRUDER 13.7
+#define DUALEXTRUDER_Y_PROBE_OFFSET_FROM_EXTRUDER 26.1
+#define DUALEXTRUDER_Z_PROBE_OFFSET_FROM_EXTRUDER 0
 
 // Certain types of probes need to stay away from edges
 #define MIN_PROBE_EDGE 5
@@ -902,7 +909,7 @@
  * Example: `M851 Z-5` with a CLEARANCE of 4  =>  9mm from bed to nozzle.
  *     But: `M851 Z+1` with a CLEARANCE of 2  =>  2mm from bed to nozzle.
  */
-#define Z_CLEARANCE_DEPLOY_PROBE    10 // Z Clearance for Deploy/Stow
+#define Z_CLEARANCE_DEPLOY_PROBE    40 // Z Clearance for Deploy/Stow
 #define Z_CLEARANCE_BETWEEN_PROBES  5 // Z Clearance between probe points
 #define Z_CLEARANCE_MULTI_PROBE     (1.5f) // Z Clearance between multiple probes
 //#define Z_AFTER_PROBING           5 // Z position after probing is done
@@ -940,7 +947,12 @@
 #define Y_ENABLE_ON 0
 #define Z_ENABLE_ON 0
 #define B_ENABLE_ON 0
-#define E_ENABLE_ON 0 // For all extruders
+#if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
+// #define E_ENABLE_ON 0 // For all extruders
+extern uint8_t E_ENABLE_ON;
+#else
+  #define E_ENABLE_ON 0 // For all extruders
+#endif
 
 // Disables axis stepper immediately when it's not being used.
 // WARNING: When motors turn off there is a chance of losing position accuracy!
@@ -1048,14 +1060,22 @@
   extern float s_home_offset[XN];
   extern float m_home_offset[XN];
   extern float l_home_offset[XN];
+  extern float s_home_offset_3dp2e[XN];
+  extern float m_home_offset_3dp2e[XN];
+  extern float l_home_offset_3dp2e[XN];
+  extern float l_home_offset_laser[XN];
 
   extern float print_min_planner_speed;
   extern float laser_min_planner_speed;
   extern float cnc_min_planner_speed;
 
 #define S_HOME_OFFSET_DEFAULT {-7, -5, 0, 0}
+#define S_HOME_OFFSET_3DP2E_DEFAULT {-21, -17, 0, 0}
 #define M_HOME_OFFSET_DEFAULT {-15.5, -7, 0, 0}
+#define M_HOME_OFFSET_3DP2E_DEFAULT {-28, -20, 0, 0}
 #define L_HOME_OFFSET_DEFAULT {-19, -4, 0, 0}
+#define L_HOME_OFFSET_3DP2E_DEFAULT {-32, -23, 0, 0}
+#define L_HOME_OFFSET_LASER_DEFAULT {-19, -10, 0, 0}  // to fit camera capture
 #endif //DISABLE(SW_MACHINE_SIZE)
 
 // The size of the print bed
@@ -1216,6 +1236,7 @@
   #define GRID_MAX_POINTS GRID_MAX_NUM * GRID_MAX_NUM
 //  #define PROBE_MARGIN 30
 #define DEFAUT_LEVELING_HEIGHT  9 // uint: mm
+#define DEFAUT_LEVELING_HEIGHT_3DP2E  50 // uint: mm
 
   // Set the boundaries for probing (where the probe can reach).
   #define LEFT_PROBE_BED_POSITION 30

@@ -246,9 +246,14 @@ millis_t max_inactive_time, // = 0
   float MAGNET_X_SPAN = 114;
   float MAGNET_Y_SPAN = 114;
 
+  // TODO: update the default offset for model M&S
   float s_home_offset[XN] = S_HOME_OFFSET_DEFAULT;
+  float s_home_offset_3dp2e[XN] = S_HOME_OFFSET_3DP2E_DEFAULT;
   float m_home_offset[XN] = M_HOME_OFFSET_DEFAULT;
+  float m_home_offset_3dp2e[XN] = M_HOME_OFFSET_3DP2E_DEFAULT;
   float l_home_offset[XN] = L_HOME_OFFSET_DEFAULT;
+  float l_home_offset_3dp2e[XN] = L_HOME_OFFSET_3DP2E_DEFAULT;
+  float l_home_offset_laser[XN] = L_HOME_OFFSET_LASER_DEFAULT;
 
   float print_min_planner_speed = MINIMUM_PRINT_PLANNER_SPEED;
   float laser_min_planner_speed = MINIMUM_LASER_PLANNER_SPEED;
@@ -275,13 +280,22 @@ void set_homeoffset() {
   LOOP_XYZ(i) {
     switch (linear_p->machine_size()) {
       case MACHINE_SIZE_A150:
-        home_offset[i] = s_home_offset[i];
+        if (ModuleBase::toolhead() == MODULE_TOOLHEAD_DUALEXTRUDER)
+          home_offset[i] = s_home_offset_3dp2e[i];
+        else
+          home_offset[i] = s_home_offset[i];
         break;
       case MACHINE_SIZE_A250:
-        home_offset[i] = m_home_offset[i];
+        if (ModuleBase::toolhead() == MODULE_TOOLHEAD_DUALEXTRUDER)
+          home_offset[i] = m_home_offset_3dp2e[i];
+        else
+          home_offset[i] = m_home_offset[i];
         break;
       case MACHINE_SIZE_A350:
-        home_offset[i] = l_home_offset[i];
+        if (ModuleBase::toolhead() == MODULE_TOOLHEAD_DUALEXTRUDER)
+          home_offset[i] = l_home_offset_3dp2e[i];
+        else
+          home_offset[i] = l_home_offset[i];
         break;
       default:
         break;
@@ -293,11 +307,18 @@ void reset_homeoffset() {
   float s_home_offset_def[XN] = S_HOME_OFFSET_DEFAULT;
   float m_home_offset_def[XN] = M_HOME_OFFSET_DEFAULT;
   float l_home_offset_def[XN] = L_HOME_OFFSET_DEFAULT;
+  // TODO: update default offest for dual-extruder
+  float s_home_offset_3dp2e_def[XN] = S_HOME_OFFSET_3DP2E_DEFAULT;
+  float m_home_offset_3dp2e_def[XN] = M_HOME_OFFSET_3DP2E_DEFAULT;
+  float l_home_offset_3dp2e_def[XN] = L_HOME_OFFSET_3DP2E_DEFAULT;
 
   LOOP_XN(i) {
     s_home_offset[i] = s_home_offset_def[i];
     m_home_offset[i] = m_home_offset_def[i];
     l_home_offset[i] = l_home_offset_def[i];
+    s_home_offset_3dp2e[i] = s_home_offset_3dp2e_def[i];
+    m_home_offset_3dp2e[i] = m_home_offset_3dp2e_def[i];
+    l_home_offset_3dp2e[i] = l_home_offset_3dp2e_def[i];
   }
 
   set_homeoffset();
@@ -306,12 +327,14 @@ void reset_homeoffset() {
 void set_min_planner_speed() {
   switch (ModuleBase::toolhead()) {
     case MODULE_TOOLHEAD_3DP:
+    case MODULE_TOOLHEAD_DUALEXTRUDER:
       planner.min_planner_speed = print_min_planner_speed;
       break;
     case MODULE_TOOLHEAD_CNC:
       planner.min_planner_speed = cnc_min_planner_speed;
       break;
     case MODULE_TOOLHEAD_LASER:
+    case MODULE_TOOLHEAD_LASER_10W:
       planner.min_planner_speed = laser_min_planner_speed;
       break;
     default:
@@ -1043,11 +1066,11 @@ void setup() {
 
   // Check startup - does nothing if bootloader sets MCUSR to 0
   byte mcu = HAL_get_reset_source();
-  if (mcu &  1) SERIAL_ECHOLNPGM(MSG_POWERUP);
-  if (mcu &  2) SERIAL_ECHOLNPGM(MSG_EXTERNAL_RESET);
-  if (mcu &  4) SERIAL_ECHOLNPGM(MSG_BROWNOUT_RESET);
-  if (mcu &  8) SERIAL_ECHOLNPGM(MSG_WATCHDOG_RESET);
-  if (mcu & 32) SERIAL_ECHOLNPGM(MSG_SOFTWARE_RESET);
+  if (mcu & RST_POWER_ON) SERIAL_ECHOLNPGM(MSG_POWERUP);
+  if (mcu & RST_EXTERNAL) SERIAL_ECHOLNPGM(MSG_EXTERNAL_RESET);
+  if (mcu & RST_BROWN_OUT) SERIAL_ECHOLNPGM(MSG_BROWNOUT_RESET);
+  if (mcu & RST_WATCHDOG) SERIAL_ECHOLNPGM(MSG_WATCHDOG_RESET);
+  if (mcu & RST_SOFTWARE) SERIAL_ECHOLNPGM(MSG_SOFTWARE_RESET);
   HAL_clear_reset_source();
 
   SERIAL_ECHOPGM(MSG_MARLIN);

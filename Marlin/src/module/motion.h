@@ -87,11 +87,15 @@ extern float feedrate_mm_s;
  * Feedrate scaling and conversion
  */
 extern int16_t feedrate_percentage;
+#if (MOTHERBOARD == BOARD_SNAPMAKER_2_0)
+  extern int16_t extruders_feedrate_percentage[EXTRUDERS];
+#endif
 #define MMS_SCALED(MM_S) ((MM_S)*feedrate_percentage*0.01f)
 
 // The active extruder (tool). Set with T<extruder> command.
 #if EXTRUDERS > 1
   extern uint8_t active_extruder;
+  extern uint8_t actual_extruder; // = 0
 #else
   constexpr uint8_t active_extruder = 0;
 #endif
@@ -147,6 +151,7 @@ typedef struct { float min, max; } axis_limits_t;
 #if HAS_SOFTWARE_ENDSTOPS
   extern bool soft_endstops_enabled;
   extern axis_limits_t soft_endstop[XYZ];
+  extern float z_home_position;
   void apply_motion_limits(float target[XYZ]);
   void update_software_endstops(const AxisEnum axis
     #if HAS_HOTEND_OFFSET

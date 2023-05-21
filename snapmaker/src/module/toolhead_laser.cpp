@@ -937,7 +937,7 @@ ErrCode ToolHeadLaser::LaserGetHWVersion() {
   CanStdFuncCmd_t cmd;
   uint8_t buff[1] = {0};
 
-  cmd.id        = MODULE_FUNC_GET_LASER_HW_VERSION;
+  cmd.id        = MODULE_FUNC_GET_HW_VERSION;
   cmd.data      = buff;
   cmd.length    = 1;
 
@@ -991,6 +991,9 @@ void ToolHeadLaser::LaserConfirmPinState() {
 }
 
 void ToolHeadLaser::Process() {
+  if (mac_index_ == MODULE_MAC_INDEX_INVALID)
+    return;
+
   if (++timer_in_process_ < 100) return;
   timer_in_process_ = 0;
 
@@ -1028,7 +1031,7 @@ void ToolHeadLaser::SetOutputInline(float power) {
 
   SetPower(power);
   planner.laser_inline.power = power_pwm_;
-  
+
   if (power_pwm_ > 0)
     planner.laser_inline.status.isEnabled = true;
   else
@@ -1053,6 +1056,6 @@ void ToolHeadLaser::TurnOn_ISR(uint16_t power_pwm) {
     state_ = TOOLHEAD_LASER_STATE_ON;
   else
     state_ = TOOLHEAD_LASER_STATE_OFF;
-    
+
   TimSetPwm(power_pwm);
 }

@@ -752,7 +752,7 @@ void Temperature::_temp_error(const int8_t heater, PGM_P const serial_msg, PGM_P
 
 void Temperature::max_temp_error(const int8_t heater) {
   _temp_error(heater, PSTR(MSG_T_MAXTEMP), TEMP_ERR_PSTR(MSG_ERR_MAXTEMP, heater));
-  systemservice.ThrowException((ExceptionHost)heater,ETYPE_OVERRUN_MAXTEMP_AGAIN);
+  systemservice.ThrowException((ExceptionHost)heater,ETYPE_OVERRUN_MAXTEMP);
 }
 
 void Temperature::min_temp_error(const int8_t heater) {
@@ -1003,10 +1003,9 @@ void Temperature::manage_heater() {
         }
       }
 
-      if (temp_hotend[e].current > (HEATER_0_MAXTEMP + 10))
-        systemservice.ThrowException((ExceptionHost)(e), ETYPE_OVERRUN_MAXTEMP_AGAIN);
-      else if (temp_hotend[e].current > HEATER_0_MAXTEMP)
-        systemservice.ThrowException((ExceptionHost)(e), ETYPE_OVERRUN_MAXTEMP);
+      // comment below code cause will check over-temperature error in callback that receive temperautre of toolhead
+      // if (temp_hotend[e].current > temp_range[e].maxtemp)
+      //   systemservice.ThrowException((ExceptionHost)(e), ETYPE_OVERRUN_MAXTEMP);
 
       #if ENABLED(THERMAL_PROTECTION_HOTENDS)
         // Check for thermal runaway
@@ -2576,7 +2575,7 @@ void Temperature::isr() {
     /**
      * Standard heater PWM modulation
      */
-    if(MODULE_TOOLHEAD_3DP == ModuleBase::toolhead()) {
+    if(MODULE_TOOLHEAD_3DP == ModuleBase::toolhead() || MODULE_TOOLHEAD_DUALEXTRUDER == ModuleBase::toolhead()) {
       if (pwm_count_tmp >= 127) {
         pwm_count_tmp -= 127;
         #define _PWM_MOD(N,S,T) do{                           \
